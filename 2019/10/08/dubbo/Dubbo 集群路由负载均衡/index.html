@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.2.0" color="#222">
+
+
+
+
+
+
+<link rel="stylesheet" href="/css/main.css?v=7.2.0">
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '7.2.0',
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    copycode: {"enable":false,"show_result":false,"style":null},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    }
+  };
+</script>
+
+  <meta name="description" content="1.集群的容错模式Failover Cluster这是dubbo中默认的集群容错模式  失败自动切换，当出现失败，重试其它服务器。 通常用于读操作，但重试会带来更长延迟。 可通过retries=”2”来设置重试次数(不含第一次)。  Failfast Cluster 快速失败，只发起一次调用，失败立即报错。 通常用于非幂等性的写操作，比如新增记录。  Failsafe Cluster 失败安全，出">
+<meta name="keywords" content="dubbo">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Dubbo 集群路由负载均衡">
+<meta property="og:url" content="http://localhost:4000/2019/10/08/dubbo/Dubbo 集群路由负载均衡/index.html">
+<meta property="og:site_name" content="超级小杭">
+<meta property="og:description" content="1.集群的容错模式Failover Cluster这是dubbo中默认的集群容错模式  失败自动切换，当出现失败，重试其它服务器。 通常用于读操作，但重试会带来更长延迟。 可通过retries=”2”来设置重试次数(不含第一次)。  Failfast Cluster 快速失败，只发起一次调用，失败立即报错。 通常用于非幂等性的写操作，比如新增记录。  Failsafe Cluster 失败安全，出">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-30T14:58:44.255Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Dubbo 集群路由负载均衡">
+<meta name="twitter:description" content="1.集群的容错模式Failover Cluster这是dubbo中默认的集群容错模式  失败自动切换，当出现失败，重试其它服务器。 通常用于读操作，但重试会带来更长延迟。 可通过retries=”2”来设置重试次数(不含第一次)。  Failfast Cluster 快速失败，只发起一次调用，失败立即报错。 通常用于非幂等性的写操作，比如新增记录。  Failsafe Cluster 失败安全，出">
+
+
+
+
+
+  
+  
+  <link rel="canonical" href="http://localhost:4000/2019/10/08/dubbo/Dubbo 集群路由负载均衡/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  
+  <title>Dubbo 集群路由负载均衡 | 超级小杭</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">超级小杭</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <p class="site-subtitle">超级无敌飞侠</p>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">29</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">8</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://localhost:4000/2019/10/08/dubbo/Dubbo 集群路由负载均衡/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="痞子の王">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/logo.svg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="超级小杭">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Dubbo 集群路由负载均衡
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+
+          
+          
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2019-10-08 21:03:47" itemprop="dateCreated datePublished" datetime="2019-10-08T21:03:47+08:00">2019-10-08</time>
+            </span>
+          
+
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-30 22:58:44" itemprop="dateModified" datetime="2020-03-30T22:58:44+08:00">2020-03-30</time>
+              </span>
+            
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/dubbo系列/" itemprop="url" rel="index"><span itemprop="name">dubbo系列</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+            
+          
+
+          
+          
+
+          
+
+          
+
+          <br>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="1-集群的容错模式"><a href="#1-集群的容错模式" class="headerlink" title="1.集群的容错模式"></a>1.集群的容错模式</h1><h2 id="Failover-Cluster"><a href="#Failover-Cluster" class="headerlink" title="Failover Cluster"></a>Failover Cluster</h2><p>这是dubbo中默认的集群容错模式</p>
+<ul>
+<li>失败自动切换，当出现失败，重试其它服务器。</li>
+<li>通常用于读操作，但重试会带来更长延迟。</li>
+<li>可通过retries=”2”来设置重试次数(不含第一次)。</li>
+</ul>
+<h2 id="Failfast-Cluster"><a href="#Failfast-Cluster" class="headerlink" title="Failfast Cluster"></a>Failfast Cluster</h2><ul>
+<li>快速失败，只发起一次调用，失败立即报错。</li>
+<li>通常用于非幂等性的写操作，比如新增记录。</li>
+</ul>
+<h2 id="Failsafe-Cluster"><a href="#Failsafe-Cluster" class="headerlink" title="Failsafe Cluster"></a>Failsafe Cluster</h2><ul>
+<li>失败安全，出现异常时，直接忽略。</li>
+<li>通常用于写入审计日志等操作。</li>
+</ul>
+<h2 id="Failback-Cluster"><a href="#Failback-Cluster" class="headerlink" title="Failback Cluster"></a>Failback Cluster</h2><ul>
+<li>失败自动恢复，后台记录失败请求，定时重发。</li>
+<li>通常用于消息通知操作。</li>
+</ul>
+<h2 id="Forking-Cluster"><a href="#Forking-Cluster" class="headerlink" title="Forking Cluster"></a>Forking Cluster</h2><ul>
+<li>并行调用多个服务器，只要一个成功即返回。</li>
+<li>通常用于实时性要求较高的读操作，但需要浪费更多服务资源。</li>
+<li>可通过forks=”2”来设置最大并行数。</li>
+</ul>
+<h2 id="Broadcast-Cluster"><a href="#Broadcast-Cluster" class="headerlink" title="Broadcast Cluster"></a>Broadcast Cluster</h2><ul>
+<li>广播调用所有提供者，逐个调用，任意一台报错则报错。(2.1.0开始支持)</li>
+<li>通常用于通知所有提供者更新缓存或日志等本地资源信息。</li>
+</ul>
+<h1 id="2-负载均衡"><a href="#2-负载均衡" class="headerlink" title="2. 负载均衡"></a>2. 负载均衡</h1><p>dubbo默认的负载均衡策略是random，随机调用。</p>
+<h2 id="Random-LoadBalance"><a href="#Random-LoadBalance" class="headerlink" title="Random LoadBalance"></a>Random LoadBalance</h2><ul>
+<li>随机，按权重设置随机概率。</li>
+<li>在一个截面上碰撞的概率高，但调用量越大分布越均匀，而且按概率使用权重后也比较均匀，有利于动态调整提供者权重。</li>
+</ul>
+<h2 id="RoundRobin-LoadBalance"><a href="#RoundRobin-LoadBalance" class="headerlink" title="RoundRobin LoadBalance"></a>RoundRobin LoadBalance</h2><ul>
+<li>轮循，按公约后的权重设置轮循比率。</li>
+<li>存在慢的提供者累积请求问题，比如：第二台机器很慢，但没挂，当请求调到第二台时就卡在那，久而久之，所有请求都卡在调到第二台上。</li>
+</ul>
+<h2 id="LeastActive-LoadBalance"><a href="#LeastActive-LoadBalance" class="headerlink" title="LeastActive LoadBalance"></a>LeastActive LoadBalance</h2><ul>
+<li>最少活跃调用数，相同活跃数的随机，活跃数指调用前后计数差。</li>
+<li>使慢的提供者收到更少请求，因为越慢的提供者的调用前后计数差会越大。</li>
+</ul>
+<h2 id="ConsistentHash-LoadBalance"><a href="#ConsistentHash-LoadBalance" class="headerlink" title="ConsistentHash LoadBalance"></a>ConsistentHash LoadBalance</h2><ul>
+<li>一致性Hash，相同参数的请求总是发到同一提供者。</li>
+<li>当某一台提供者挂时，原本发往该提供者的请求，基于虚拟节点，平摊到其它提供者，不会引起剧烈变动。</li>
+<li>缺省只对第一个参数Hash。</li>
+<li>缺省用160份虚拟节点。</li>
+</ul>
+<h1 id="3-源码解析"><a href="#3-源码解析" class="headerlink" title="3.源码解析"></a>3.源码解析</h1><h2 id="3-1-调用方法入口"><a href="#3-1-调用方法入口" class="headerlink" title="3.1.调用方法入口"></a>3.1.调用方法入口</h2><p><code>com.alibaba.dubbo.registry.integration.RegistryProtocol#doRefer</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> &lt;T&gt; <span class="function">Invoker&lt;T&gt; <span class="title">doRefer</span><span class="params">(Cluster cluster, Registry registry, Class&lt;T&gt; type, URL url)</span> </span>&#123;</span><br><span class="line">  RegistryDirectory&lt;T&gt; directory = <span class="keyword">new</span> RegistryDirectory&lt;T&gt;(type, url);</span><br><span class="line">  directory.setRegistry(registry);</span><br><span class="line">  directory.setProtocol(protocol);</span><br><span class="line"></span><br><span class="line">	<span class="comment">//默认FailoverCluster</span></span><br><span class="line">  Invoker invoker = cluster.join(directory);</span><br><span class="line">  ProviderConsumerRegTable.registerConsumer(invoker, url, subscribeUrl, directory);</span><br><span class="line">  <span class="keyword">return</span> invoker;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>返回的Invoker是一个MockClusterInvoker，MockClusterInvoker内部包含一个Directory和一个FailoverClusterInvoker。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">FailoverCluster</span> <span class="keyword">implements</span> <span class="title">Cluster</span> </span>&#123;</span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">static</span> String NAME = <span class="string">"failover"</span>;</span><br><span class="line">  <span class="meta">@Override</span></span><br><span class="line">  <span class="keyword">public</span> &lt;T&gt; <span class="function">Invoker&lt;T&gt; <span class="title">join</span><span class="params">(Directory&lt;T&gt; directory)</span> <span class="keyword">throws</span> RpcException </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> FailoverClusterInvoker&lt;T&gt;(directory);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Invoker都封装好了之后，就是创建代理，然后使用代理调用我们的要调用的方法。</p>
+<h2 id="3-2-调用方法时集群的处理"><a href="#3-2-调用方法时集群的处理" class="headerlink" title="3.2.调用方法时集群的处理"></a>3.2.调用方法时集群的处理</h2><p>在进行具体方法调用的时候，代理中会<code>invoker.invoke()</code>，这里Invoker就是我们上面封装好的MockClusterInvoker，所以首先进入MockClusterInvoker的invoke方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Result <span class="title">invoke</span><span class="params">(Invocation invocation)</span> <span class="keyword">throws</span> RpcException </span>&#123;</span><br><span class="line">  Result result = <span class="keyword">null</span>;</span><br><span class="line">  <span class="comment">//我们没配置mock，所以这里为false</span></span><br><span class="line">  <span class="comment">//Mock通常用于服务降级</span></span><br><span class="line">  String value = directory.getUrl().getMethodParameter(invocation.getMethodName(), Constants.MOCK_KEY, Boolean.FALSE.toString()).trim(); </span><br><span class="line">  <span class="comment">//没有使用mock</span></span><br><span class="line">  <span class="keyword">if</span> (value.length() == <span class="number">0</span> || value.equalsIgnoreCase(<span class="string">"false"</span>))&#123;</span><br><span class="line">    <span class="comment">//这里的invoker是FailoverClusterInvoker</span></span><br><span class="line">    result = <span class="keyword">this</span>.invoker.invoke(invocation);</span><br><span class="line">  &#125; <span class="keyword">else</span> <span class="keyword">if</span> (value.startsWith(<span class="string">"force"</span>)) &#123;</span><br><span class="line">    <span class="comment">//mock=force:return+null</span></span><br><span class="line">    <span class="comment">//表示消费方对方法的调用都直接返回null，不发起远程调用</span></span><br><span class="line">    <span class="comment">//可用于屏蔽不重要服务不可用的时候，对调用方的影响</span></span><br><span class="line">    <span class="comment">//force:direct mock</span></span><br><span class="line">    result = doMockInvoke(invocation, <span class="keyword">null</span>);</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">//mock=fail:return+null</span></span><br><span class="line">    <span class="comment">//表示消费方对该服务的方法调用失败后，再返回null，不抛异常</span></span><br><span class="line">    <span class="comment">//可用于对不重要服务不稳定的时候，忽略对调用方的影响</span></span><br><span class="line">    <span class="comment">//fail-mock</span></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      result = <span class="keyword">this</span>.invoker.invoke(invocation);</span><br><span class="line">    &#125;<span class="keyword">catch</span> (RpcException e) &#123;</span><br><span class="line">      <span class="keyword">if</span> (e.isBiz()) &#123;</span><br><span class="line">        <span class="keyword">throw</span> e;</span><br><span class="line">      &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        result = doMockInvoke(invocation, e);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们这里么有配置mock属性。首先进入的是AbstractClusterInvoker的incoke方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Result <span class="title">invoke</span><span class="params">(<span class="keyword">final</span> Invocation invocation)</span> <span class="keyword">throws</span> RpcException </span>&#123;</span><br><span class="line">  <span class="comment">//可以看到这里该处理负载均衡的问题了</span></span><br><span class="line">  LoadBalance loadbalance;</span><br><span class="line">  <span class="comment">//根据invocation中的信息从Directory中获取Invoker列表</span></span><br><span class="line">  <span class="comment">//这一步中会进行路由的处理</span></span><br><span class="line">  List&lt;Invoker&lt;T&gt;&gt; invokers = list(invocation);</span><br><span class="line">  <span class="keyword">if</span> (invokers != <span class="keyword">null</span> &amp;&amp; invokers.size() &gt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">//使用扩展机制，加载LoadBalance的实现类，默认使用的是random</span></span><br><span class="line">    <span class="comment">//我们这里得到的就是RandomLoadBalance</span></span><br><span class="line">    loadbalance = ExtensionLoader.getExtensionLoader(LoadBalance.class).getExtension(invokers.get(<span class="number">0</span>).getUrl()</span><br><span class="line">                                                                                     .getMethodParameter(invocation.getMethodName(),Constants.LOADBALANCE_KEY, Constants.DEFAULT_LOADBALANCE));</span><br><span class="line">  &#125; </span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> doInvoke(invocation, invokers, loadbalance);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>看下FailoverClusterInvoker#doInvoke方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Result <span class="title">doInvoke</span><span class="params">(Invocation invocation, <span class="keyword">final</span> List&lt;Invoker&lt;T&gt;&gt; invokers, LoadBalance loadbalance)</span> <span class="keyword">throws</span> RpcException </span>&#123;</span><br><span class="line">  <span class="comment">//Invoker列表</span></span><br><span class="line">  List&lt;Invoker&lt;T&gt;&gt; copyinvokers = invokers;</span><br><span class="line">  <span class="comment">//确认下Invoker列表不为空</span></span><br><span class="line">  checkInvokers(copyinvokers, invocation);</span><br><span class="line">  <span class="comment">//重试次数,默认3次</span></span><br><span class="line">  <span class="keyword">int</span> len = getUrl().getMethodParameter(invocation.getMethodName(), Constants.RETRIES_KEY, Constants.DEFAULT_RETRIES) + <span class="number">1</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">// retry loop.</span></span><br><span class="line">  RpcException le = <span class="keyword">null</span>; <span class="comment">// last exception.</span></span><br><span class="line">  List&lt;Invoker&lt;T&gt;&gt; invoked = <span class="keyword">new</span> ArrayList&lt;Invoker&lt;T&gt;&gt;(copyinvokers.size()); <span class="comment">// invoked invokers.</span></span><br><span class="line">  Set&lt;String&gt; providers = <span class="keyword">new</span> HashSet&lt;String&gt;(len);</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; len; i++) &#123;</span><br><span class="line">    <span class="comment">//重试时，进行重新选择，避免重试时invoker列表已发生变化.</span></span><br><span class="line">    <span class="comment">//注意：如果列表发生了变化，那么invoked判断会失效，因为invoker示例已经改变</span></span><br><span class="line">    <span class="keyword">if</span> (i &gt; <span class="number">0</span>) &#123;</span><br><span class="line">      checkWheatherDestoried();</span><br><span class="line">      copyinvokers = list(invocation);</span><br><span class="line">      <span class="comment">//重新检查一下</span></span><br><span class="line">      checkInvokers(copyinvokers, invocation);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//使用loadBalance选择一个Invoker返回</span></span><br><span class="line">    Invoker&lt;T&gt; invoker = select(loadbalance, invocation, copyinvokers, invoked);</span><br><span class="line">    invoked.add(invoker);</span><br><span class="line">    RpcContext.getContext().setInvokers((List)invoked);</span><br><span class="line"></span><br><span class="line">      <span class="comment">//使用选择的结果Invoker进行调用，返回结果</span></span><br><span class="line">      Result result = invoker.invoke(invocation);</span><br><span class="line">      <span class="keyword">return</span> result;</span><br><span class="line">   </span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>先看下使用loadbalance选择invoker的select方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> Invoker&lt;T&gt; <span class="title">select</span><span class="params">(LoadBalance loadbalance, Invocation invocation, List&lt;Invoker&lt;T&gt;&gt; invokers, List&lt;Invoker&lt;T&gt;&gt; selected)</span> <span class="keyword">throws</span> RpcException </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (invokers == <span class="keyword">null</span> || invokers.isEmpty())</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">  String methodName = invocation == <span class="keyword">null</span> ? <span class="string">""</span> : invocation.getMethodName();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">boolean</span> sticky = invokers.get(<span class="number">0</span>).getUrl().getMethodParameter(methodName, Constants.CLUSTER_STICKY_KEY, Constants.DEFAULT_CLUSTER_STICKY);</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">//ignore overloaded method</span></span><br><span class="line">    <span class="keyword">if</span> (stickyInvoker != <span class="keyword">null</span> &amp;&amp; !invokers.contains(stickyInvoker)) &#123;</span><br><span class="line">      stickyInvoker = <span class="keyword">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//ignore concurrency problem</span></span><br><span class="line">    <span class="keyword">if</span> (sticky &amp;&amp; stickyInvoker != <span class="keyword">null</span> &amp;&amp; (selected == <span class="keyword">null</span> || !selected.contains(stickyInvoker))) &#123;</span><br><span class="line">      <span class="keyword">if</span> (availablecheck &amp;&amp; stickyInvoker.isAvailable()) &#123;</span><br><span class="line">        <span class="keyword">return</span> stickyInvoker;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  Invoker&lt;T&gt; invoker = doSelect(loadbalance, invocation, invokers, selected);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (sticky) &#123;</span><br><span class="line">    stickyInvoker = invoker;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> invoker;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>doselect方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> Invoker&lt;T&gt; <span class="title">doselect</span><span class="params">(LoadBalance loadbalance, Invocation invocation, List&lt;Invoker&lt;T&gt;&gt; invokers, List&lt;Invoker&lt;T&gt;&gt; selected)</span> <span class="keyword">throws</span> RpcException </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (invokers == <span class="keyword">null</span> || invokers.size() == <span class="number">0</span>)</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">  <span class="comment">//只有一个invoker，直接返回，不需要处理</span></span><br><span class="line">  <span class="keyword">if</span> (invokers.size() == <span class="number">1</span>)</span><br><span class="line">    <span class="keyword">return</span> invokers.get(<span class="number">0</span>);</span><br><span class="line">  <span class="comment">// 如果只有两个invoker，退化成轮循</span></span><br><span class="line">  <span class="keyword">if</span> (invokers.size() == <span class="number">2</span> &amp;&amp; selected != <span class="keyword">null</span> &amp;&amp; selected.size() &gt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> selected.get(<span class="number">0</span>) == invokers.get(<span class="number">0</span>) ? invokers.get(<span class="number">1</span>) : invokers.get(<span class="number">0</span>);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">//使用loadBalance进行选择</span></span><br><span class="line">  Invoker&lt;T&gt; invoker = loadbalance.select(invokers, getUrl(), invocation);</span><br><span class="line"></span><br><span class="line">  <span class="comment">//如果 selected中包含（优先判断） 或者 不可用&amp;&amp;availablecheck=true 则重试.</span></span><br><span class="line">  <span class="keyword">if</span>( (selected != <span class="keyword">null</span> &amp;&amp; selected.contains(invoker))</span><br><span class="line">     ||(!invoker.isAvailable() &amp;&amp; getUrl()!=<span class="keyword">null</span> &amp;&amp; availablecheck))&#123;</span><br><span class="line">    <span class="keyword">try</span>&#123;</span><br><span class="line">      <span class="comment">//重新选择</span></span><br><span class="line">      Invoker&lt;T&gt; rinvoker = reselect(loadbalance, invocation, invokers, selected, availablecheck);</span><br><span class="line">      <span class="keyword">if</span>(rinvoker != <span class="keyword">null</span>)&#123;</span><br><span class="line">        invoker =  rinvoker;</span><br><span class="line">      &#125;<span class="keyword">else</span>&#123;</span><br><span class="line">        <span class="comment">//看下第一次选的位置，如果不是最后，选+1位置.</span></span><br><span class="line">        <span class="keyword">int</span> index = invokers.indexOf(invoker);</span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line">          <span class="comment">//最后在避免碰撞</span></span><br><span class="line">          invoker = index &lt;invokers.size()-<span class="number">1</span>?invokers.get(index+<span class="number">1</span>) :invoker;</span><br><span class="line">        &#125;<span class="keyword">catch</span> (Exception e) &#123;。。。 &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;<span class="keyword">catch</span> (Throwable t)&#123;。。。&#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> invoker;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接着看使用loadBalance进行选择，首先进入AbstractLoadBalance的select方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> &lt;T&gt; <span class="function">Invoker&lt;T&gt; <span class="title">select</span><span class="params">(List&lt;Invoker&lt;T&gt;&gt; invokers, URL url, Invocation invocation)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (invokers == <span class="keyword">null</span> || invokers.size() == <span class="number">0</span>)</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">  <span class="keyword">if</span> (invokers.size() == <span class="number">1</span>)</span><br><span class="line">    <span class="keyword">return</span> invokers.get(<span class="number">0</span>);</span><br><span class="line">  <span class="comment">//	进行选择，具体的子类实现，我们这里是RandomLoadBalance</span></span><br><span class="line">  <span class="keyword">return</span> doSelect(invokers, url, invocation);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接着去RandomLoadBalance中查看：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> &lt;T&gt; <span class="function">Invoker&lt;T&gt; <span class="title">doSelect</span><span class="params">(List&lt;Invoker&lt;T&gt;&gt; invokers, URL url, Invocation invocation)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">int</span> length = invokers.size(); <span class="comment">// 总个数</span></span><br><span class="line">  <span class="keyword">int</span> totalWeight = <span class="number">0</span>; <span class="comment">// 总权重</span></span><br><span class="line">  <span class="keyword">boolean</span> sameWeight = <span class="keyword">true</span>; <span class="comment">// 权重是否都一样</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; length; i++) &#123;</span><br><span class="line">    <span class="keyword">int</span> weight = getWeight(invokers.get(i), invocation);</span><br><span class="line">    totalWeight += weight; <span class="comment">// 累计总权重</span></span><br><span class="line">    <span class="keyword">if</span> (sameWeight &amp;&amp; i &gt; <span class="number">0</span></span><br><span class="line">        &amp;&amp; weight != getWeight(invokers.get(i - <span class="number">1</span>), invocation)) &#123;</span><br><span class="line">      sameWeight = <span class="keyword">false</span>; <span class="comment">// 计算所有权重是否一样</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (totalWeight &gt; <span class="number">0</span> &amp;&amp; ! sameWeight) &#123;</span><br><span class="line">    <span class="comment">// 如果权重不相同且权重大于0则按总权重数随机</span></span><br><span class="line">    <span class="keyword">int</span> offset = random.nextInt(totalWeight);</span><br><span class="line">    <span class="comment">// 并确定随机值落在哪个片断上</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; length; i++) &#123;</span><br><span class="line">      offset -= getWeight(invokers.get(i), invocation);</span><br><span class="line">      <span class="keyword">if</span> (offset &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> invokers.get(i);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 如果权重相同或权重为0则均等随机</span></span><br><span class="line">  <span class="keyword">return</span> invokers.get(random.nextInt(length));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面根据权重之类的来进行选择一个Invoker返回。接下来reselect的方法不在说明，是先从非selected的列表中选择，没有在从selected列表中选择。</p>
+<p>选择好了Invoker之后，就回去FailoverClusterInvoker的doInvoke方法，接着就是根据选中的Invoker调用invoke方法进行返回结果，接着就是到具体的Invoker进行调用的过程了。这部分的解析在消费者和提供者请求响应过程已经解析过了，不再重复。</p>
+<h2 id="3-3-路由策略"><a href="#3-3-路由策略" class="headerlink" title="3.3.路由策略"></a>3.3.路由策略</h2><p>回到AbstractClusterInvoker的invoke方法中，这里有一步是<code>List&lt;Invoker&lt;T&gt;&gt; invokers = list(invocation);</code>获取Invoker列表，这里同时也进行了路由的操作，看下list方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span>  List&lt;Invoker&lt;T&gt;&gt; list(Invocation invocation) <span class="keyword">throws</span> RpcException &#123;</span><br><span class="line">  List&lt;Invoker&lt;T&gt;&gt; invokers = directory.list(invocation);</span><br><span class="line">  <span class="keyword">return</span> invokers;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接着看AbstractDirectory的list方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> List&lt;Invoker&lt;T&gt;&gt; list(Invocation invocation) <span class="keyword">throws</span> RpcException &#123;</span><br><span class="line">  <span class="keyword">if</span> (destroyed)&#123;</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> RpcException(<span class="string">"Directory already destroyed .url: "</span>+ getUrl());</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">//RegistryDirectory中的doList实现</span></span><br><span class="line">  List&lt;Invoker&lt;T&gt;&gt; invokers = doList(invocation);</span><br><span class="line">  List&lt;Router&gt; localRouters = <span class="keyword">this</span>.routers; <span class="comment">// local reference</span></span><br><span class="line">  <span class="keyword">if</span> (localRouters != <span class="keyword">null</span> &amp;&amp; localRouters.size() &gt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="keyword">for</span> (Router router: localRouters)&#123;</span><br><span class="line">      <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (router.getUrl() == <span class="keyword">null</span> || router.getUrl().getParameter(Constants.RUNTIME_KEY, <span class="keyword">true</span>)) &#123;</span><br><span class="line">          <span class="comment">//路由选择</span></span><br><span class="line">          <span class="comment">//MockInvokersSelector中</span></span><br><span class="line">          invokers = router.route(invokers, getConsumerUrl(), invocation);</span><br><span class="line">        &#125;</span><br><span class="line">      &#125; <span class="keyword">catch</span> (Throwable t) &#123;。。。&#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> invokers;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>路由来过滤之后，进行负载均衡的处理。</p>
+<h1 id="4-Dubbo一致性hash实现"><a href="#4-Dubbo一致性hash实现" class="headerlink" title="4.Dubbo一致性hash实现"></a>4.Dubbo一致性hash实现</h1><h2 id="4-1-一致性哈希负载均衡配置"><a href="#4-1-一致性哈希负载均衡配置" class="headerlink" title="4.1.一致性哈希负载均衡配置"></a>4.1.一致性哈希负载均衡配置</h2><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 配置接口 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dubbo:service</span> <span class="attr">interface</span>=<span class="string">"..."</span> <span class="attr">loadbalance</span>=<span class="string">"consistenthash"</span> /&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dubbo:reference</span> <span class="attr">interface</span>=<span class="string">"..."</span> <span class="attr">loadbalance</span>=<span class="string">"consistenthash"</span> /&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- 配置方法 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dubbo:service</span> <span class="attr">interface</span>=<span class="string">"..."</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dubbo:method</span> <span class="attr">name</span>=<span class="string">"..."</span> <span class="attr">loadbalance</span>=<span class="string">"consistenthash"</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dubbo:service</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dubbo:reference</span> <span class="attr">interface</span>=<span class="string">"..."</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dubbo:method</span> <span class="attr">name</span>=<span class="string">"..."</span> <span class="attr">loadbalance</span>=<span class="string">"consistenthash"</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dubbo:reference</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="4-2-主要配置参数"><a href="#4-2-主要配置参数" class="headerlink" title="4.2.主要配置参数"></a>4.2.主要配置参数</h2><p>一致性Hash负载均衡涉及到两个主要的配置参数为</p>
+<blockquote>
+<ol>
+<li><p>hash.arguments </p>
+<p> 当进行调用时候根据调用方法的哪几个参数生成key，并根据key来通过一致性hash算法来选择调用结点。例如调用方法invoke(String s1,String s2); 若hash.arguments为1(默认值)，则仅取invoke的参数1（s1）来生成hashCode</p>
+</li>
+<li><p>hash.nodes</p>
+<p>为结点的副本数</p>
+</li>
+</ol>
+</blockquote>
+<h2 id="4-3-ConsistentHashSelector详解"><a href="#4-3-ConsistentHashSelector详解" class="headerlink" title="4.3.ConsistentHashSelector详解"></a>4.3.ConsistentHashSelector详解</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">ConsistentHashSelector</span>&lt;<span class="title">T</span>&gt; </span>&#123;</span><br><span class="line">  <span class="comment">//虚拟节点</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">final</span> TreeMap&lt;Long, Invoker&lt;T&gt;&gt; virtualInvokers;</span><br><span class="line">  <span class="comment">//副本数，默认160</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">int</span> replicaNumber;</span><br><span class="line">  <span class="comment">//hashcode</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">int</span> identityHashCode;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">int</span>[] argumentIndex;</span><br><span class="line"></span><br><span class="line">  ConsistentHashSelector(List&lt;Invoker&lt;T&gt;&gt; invokers, String methodName, <span class="keyword">int</span> identityHashCode) &#123;</span><br><span class="line">    <span class="comment">//创建TreeMap来保持结点</span></span><br><span class="line">    <span class="keyword">this</span>.virtualInvokers = <span class="keyword">new</span> TreeMap&lt;Long, Invoker&lt;T&gt;&gt;();</span><br><span class="line">    <span class="keyword">this</span>.identityHashCode = identityHashCode;</span><br><span class="line">    URL url = invokers.get(<span class="number">0</span>).getUrl();</span><br><span class="line">    <span class="comment">// 获取所配置的结点数，如没有设置则使用默认值160</span></span><br><span class="line">    <span class="keyword">this</span>.replicaNumber = url.getMethodParameter(methodName, <span class="string">"hash.nodes"</span>, <span class="number">160</span>);</span><br><span class="line">    <span class="comment">//获取需要进行hash的参数数组索引，默认对第一个参数进行hash</span></span><br><span class="line">    String[] index = Constants.COMMA_SPLIT_PATTERN.split(url.getMethodParameter(methodName, <span class="string">"hash.arguments"</span>, <span class="string">"0"</span>));</span><br><span class="line">    argumentIndex = <span class="keyword">new</span> <span class="keyword">int</span>[index.length];</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; index.length; i++) &#123;</span><br><span class="line">      argumentIndex[i] = Integer.parseInt(index[i]);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 创建虚拟结点</span></span><br><span class="line">    <span class="comment">// 对每个invoker生成replicaNumber个虚拟结点，并存放于TreeMap中</span></span><br><span class="line">    <span class="keyword">for</span> (Invoker&lt;T&gt; invoker : invokers) &#123;</span><br><span class="line">      String address = invoker.getUrl().getAddress();</span><br><span class="line">      <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; replicaNumber / <span class="number">4</span>; i++) &#123;</span><br><span class="line">        <span class="comment">// 根据md5算法为每4个结点生成一个消息摘要，摘要长为16字节128位。</span></span><br><span class="line">        <span class="keyword">byte</span>[] digest = md5(address + i);</span><br><span class="line">        <span class="comment">// 随后将128位分为4部分，0-31,32-63,64-95,95-128，并生成4个32位数，存于long中，long的高32位都为0</span></span><br><span class="line">        <span class="comment">// 并作为虚拟结点的key。</span></span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> h = <span class="number">0</span>; h &lt; <span class="number">4</span>; h++) &#123;</span><br><span class="line">          <span class="keyword">long</span> m = hash(digest, h);</span><br><span class="line">          virtualInvokers.put(m, invoker);</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 选择结点</span></span><br><span class="line">  <span class="function"><span class="keyword">public</span> Invoker&lt;T&gt; <span class="title">select</span><span class="params">(Invocation invocation)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 根据调用参数来生成Key</span></span><br><span class="line">    String key = toKey(invocation.getArguments());</span><br><span class="line">    <span class="comment">// 根据这个参数生成消息摘要</span></span><br><span class="line">    <span class="keyword">byte</span>[] digest = md5(key);</span><br><span class="line">    <span class="comment">//调用hash(digest, 0)，将消息摘要转换为hashCode，这里仅取0-31位来生成HashCode</span></span><br><span class="line">    <span class="comment">//调用sekectForKey方法选择结点。</span></span><br><span class="line">    Invoker&lt;T&gt; invoker = sekectForKey(hash(digest, <span class="number">0</span>));</span><br><span class="line">    <span class="keyword">return</span> invoker;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">private</span> String <span class="title">toKey</span><span class="params">(Object[] args)</span> </span>&#123;</span><br><span class="line">    StringBuilder buf = <span class="keyword">new</span> StringBuilder();</span><br><span class="line">    <span class="comment">//由于hash.arguments没有进行配置，因为只取方法的第1个参数作为key</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i : argumentIndex) &#123;</span><br><span class="line">      <span class="keyword">if</span> (i &gt;= <span class="number">0</span> &amp;&amp; i &lt; args.length) &#123;</span><br><span class="line">        buf.append(args[i]);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> buf.toString();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">private</span> Invoker&lt;T&gt; <span class="title">selectForKey</span><span class="params">(<span class="keyword">long</span> hash)</span> </span>&#123;</span><br><span class="line">    Map.Entry&lt;Long, Invoker&lt;T&gt;&gt; entry = virtualInvokers.tailMap(hash, <span class="keyword">true</span>).firstEntry();</span><br><span class="line">    <span class="keyword">if</span> (entry == <span class="keyword">null</span>) &#123;</span><br><span class="line">      entry = virtualInvokers.firstEntry();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> entry.getValue();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>在进行选择时候若HashCode，有三种情况：</p>
+<ol>
+<li>直接与某个虚拟结点的key一样，则直接返回该结点，例如hashCode落在某个结点上(圆圈所表示)。</li>
+<li>若不相等，则通过<code>virtualInvokers.tailMap(hash).firstKey()</code>找到大于该hash值的集合，并通过<code>firstKey()</code>方法找到第一个值返回</li>
+<li>若返回值为null，则说明该hash值已经在最大值区间了，则直接返回第一个虚拟节点<code>virtualInvokers.firstEntry()</code></li>
+</ol>
+</blockquote>
+<h2 id="4-4-测试一致性hash代码"><a href="#4-4-测试一致性hash代码" class="headerlink" title="4.4.测试一致性hash代码"></a>4.4.测试一致性hash代码</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ConsistentHashHasVirtualNode</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 待添加入Hash环的服务器列表</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">static</span> String[] servers = &#123; <span class="string">"192.168.1.0:111"</span>, <span class="string">"192.168.1.1:111"</span>, <span class="string">"192.168.1.2:111"</span>, <span class="string">"192.168.1.3:111"</span>,<span class="string">"192.168.1.4:111"</span> &#125;;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 真实结点列表,考虑到服务器上线、下线的场景，即添加、删除的场景会比较频繁，这里使用LinkedList会更好</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">static</span> List&lt;String&gt; realNodes = <span class="keyword">new</span> LinkedList&lt;String&gt;();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 虚拟节点，key表示虚拟节点的hash值，value表示虚拟节点的名称</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">static</span> SortedMap&lt;Integer, String&gt; virtualNodes = <span class="keyword">new</span> TreeMap&lt;Integer, String&gt;();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 虚拟节点的数目，这里写死，为了演示需要，一个真实结点对应5个虚拟节点</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> VIRTUAL_NODES = <span class="number">5</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">static</span> &#123;</span><br><span class="line">    <span class="comment">// 先把原始的服务器添加到真实结点列表中</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; servers.length; i++)</span><br><span class="line">      realNodes.add(servers[i]);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 再添加虚拟节点，遍历LinkedList使用foreach循环效率会比较高</span></span><br><span class="line">    <span class="keyword">for</span> (String str : realNodes) &#123;</span><br><span class="line">      <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; VIRTUAL_NODES; i++) &#123;</span><br><span class="line">        String virtualNodeName = str + <span class="string">"&amp;&amp;VN"</span> + String.valueOf(i);</span><br><span class="line">        <span class="keyword">int</span> hash = getHash(virtualNodeName);</span><br><span class="line">        System.out.println(<span class="string">"虚拟节点["</span> + virtualNodeName + <span class="string">"]被添加, hash值为"</span> + hash);</span><br><span class="line">        virtualNodes.put(hash, virtualNodeName);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    System.out.println();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 使用FNV1_32_HASH算法计算服务器的Hash值,这里不使用重写hashCode的方法，最终效果没区别</span></span><br><span class="line">  <span class="function"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">int</span> <span class="title">getHash</span><span class="params">(String str)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">int</span> p = <span class="number">16777619</span>;</span><br><span class="line">    <span class="keyword">int</span> hash = (<span class="keyword">int</span>) <span class="number">2166136261L</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; str.length(); i++)</span><br><span class="line">      hash = (hash ^ str.charAt(i)) * p;</span><br><span class="line">    hash += hash &lt;&lt; <span class="number">13</span>;</span><br><span class="line">    hash ^= hash &gt;&gt; <span class="number">7</span>;</span><br><span class="line">    hash += hash &lt;&lt; <span class="number">3</span>;</span><br><span class="line">    hash ^= hash &gt;&gt; <span class="number">17</span>;</span><br><span class="line">    hash += hash &lt;&lt; <span class="number">5</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果算出来的值为负数则取其绝对值</span></span><br><span class="line">    <span class="keyword">if</span> (hash &lt; <span class="number">0</span>)</span><br><span class="line">      hash = Math.abs(hash);</span><br><span class="line">    <span class="keyword">return</span> hash;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 得到应当路由到的结点</span></span><br><span class="line">  <span class="function"><span class="keyword">private</span> <span class="keyword">static</span> String <span class="title">getServer</span><span class="params">(String key)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 得到该key的hash值</span></span><br><span class="line">    <span class="keyword">int</span> hash = getHash(key);</span><br><span class="line">    <span class="comment">// 得到大于该Hash值的所有Map</span></span><br><span class="line">    SortedMap&lt;Integer, String&gt; subMap = virtualNodes.tailMap(hash);</span><br><span class="line">    String virtualNode;</span><br><span class="line">    <span class="keyword">if</span> (subMap.isEmpty()) &#123;</span><br><span class="line">      <span class="comment">// 如果没有比该key的hash值大的，则从第一个node开始</span></span><br><span class="line">      Integer i = virtualNodes.firstKey();</span><br><span class="line">      <span class="comment">// 返回对应的服务器</span></span><br><span class="line">      virtualNode = virtualNodes.get(i);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="comment">// 第一个Key就是顺时针过去离node最近的那个结点</span></span><br><span class="line">      Integer i = subMap.firstKey();</span><br><span class="line">      <span class="comment">// 返回对应的服务器</span></span><br><span class="line">      virtualNode = subMap.get(i);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// virtualNode虚拟节点名称要截取一下</span></span><br><span class="line">    <span class="keyword">if</span> (virtualNode != <span class="keyword">null</span> &amp;&amp; virtualNode != <span class="string">""</span>) &#123;</span><br><span class="line">      <span class="keyword">return</span> virtualNode.substring(<span class="number">0</span>, virtualNode.indexOf(<span class="string">"&amp;&amp;"</span>));</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">    String[] keys = &#123; <span class="string">"太阳"</span>, <span class="string">"月亮"</span>, <span class="string">"星星"</span>, <span class="string">"白云"</span>, <span class="string">"蓝天"</span> &#125;;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; keys.length; i++)</span><br><span class="line">      System.out.println(<span class="string">"["</span> + keys[i] + <span class="string">"]的hash值为"</span> + getHash(keys[i]) + <span class="string">", 被路由到结点["</span> + getServer(keys[i]) + <span class="string">"]"</span>);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+      
+    </div>
+
+    
+
+    
+      
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        
+          
+        
+        <div class="post-tags">
+          
+            <a href="/tags/dubbo/" rel="tag"># dubbo</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/10/03/dubbo/Dubbo编码与解码流程/" rel="next" title="Dubbo编码与解码流程">
+                <i class="fa fa-chevron-left"></i> Dubbo编码与解码流程
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/10/09/dubbo/Dubbo 服务消费解析/" rel="prev" title="Dubbo 服务消费解析">
+                Dubbo 服务消费解析 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  
+    <img class="site-author-image" itemprop="image" src="/images/logo.svg" alt="痞子の王">
+  
+  <p class="site-author-name" itemprop="name">痞子の王</p>
+  <div class="site-description motion-element" itemprop="description"></div>
+</div>
+
+
+  <nav class="site-state motion-element">
+    
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">29</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+          
+            <a href="/categories/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">分类</span>
+        </a>
+      </div>
+    
+
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+          
+            <a href="/tags/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">标签</span>
+        </a>
+      </div>
+    
+  </nav>
+
+
+
+
+
+
+
+  <div class="links-of-author motion-element">
+    
+      <span class="links-of-author-item">
+      
+      
+        
+      
+      
+        
+      
+        <a href="https://github.com/tiger1020" title="GitHub &rarr; https://github.com/tiger1020" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+    
+  </div>
+
+
+
+
+
+
+
+          
+          
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#1-集群的容错模式"><span class="nav-text">1.集群的容错模式</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Failover-Cluster"><span class="nav-text">Failover Cluster</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Failfast-Cluster"><span class="nav-text">Failfast Cluster</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Failsafe-Cluster"><span class="nav-text">Failsafe Cluster</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Failback-Cluster"><span class="nav-text">Failback Cluster</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Forking-Cluster"><span class="nav-text">Forking Cluster</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Broadcast-Cluster"><span class="nav-text">Broadcast Cluster</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#2-负载均衡"><span class="nav-text">2. 负载均衡</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Random-LoadBalance"><span class="nav-text">Random LoadBalance</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RoundRobin-LoadBalance"><span class="nav-text">RoundRobin LoadBalance</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#LeastActive-LoadBalance"><span class="nav-text">LeastActive LoadBalance</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ConsistentHash-LoadBalance"><span class="nav-text">ConsistentHash LoadBalance</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#3-源码解析"><span class="nav-text">3.源码解析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1-调用方法入口"><span class="nav-text">3.1.调用方法入口</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2-调用方法时集群的处理"><span class="nav-text">3.2.调用方法时集群的处理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3-路由策略"><span class="nav-text">3.3.路由策略</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#4-Dubbo一致性hash实现"><span class="nav-text">4.Dubbo一致性hash实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1-一致性哈希负载均衡配置"><span class="nav-text">4.1.一致性哈希负载均衡配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2-主要配置参数"><span class="nav-text">4.2.主要配置参数</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3-ConsistentHashSelector详解"><span class="nav-text">4.3.ConsistentHashSelector详解</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-4-测试一致性hash代码"><span class="nav-text">4.4.测试一致性hash代码</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">痞子の王</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.2.0</div>
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=3.4.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+
+
+  <script src="/js/utils.js?v=7.2.0"></script>
+
+  <script src="/js/motion.js?v=7.2.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/affix.js?v=7.2.0"></script>
+
+  <script src="/js/schemes/pisces.js?v=7.2.0"></script>
+
+
+
+
+  
+  <script src="/js/scrollspy.js?v=7.2.0"></script>
+<script src="/js/post-details.js?v=7.2.0"></script>
+
+
+
+  <script src="/js/next-boot.js?v=7.2.0"></script>
+
+  
+
+  
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+if ($('body').find('pre.mermaid').length) {
+  $.ajax({
+    type: 'GET',
+    url: '//cdn.jsdelivr.net/npm/mermaid@8/dist/mermaid.min.js',
+    dataType: 'script',
+    cache: true,
+    success: function() {
+      mermaid.initialize({
+        theme: 'forest',
+        logLevel: 3,
+        flowchart: { curve: 'linear' },
+        gantt: { axisFormat: '%m/%d/%Y' },
+        sequence: { actorMargin: 50 }
+      });
+    }
+  });
+}
+</script>
+
+
+<script>
+// GET RESPONSIVE HEIGHT PASSED FROM IFRAME
+
+window.addEventListener("message", function(e) {
+  var data = e.data;
+  if ((typeof data === 'string') && (data.indexOf('ciu_embed') > -1)) {
+    var featureID = data.split(':')[1];
+    var height = data.split(':')[2];
+    $(`iframe[data-feature=${featureID}]`).height(parseInt(height) + 30);
+  }
+}, false);
+</script>
+
+
+
+
+
+
+
+
+  
+
+</body>
+</html>
